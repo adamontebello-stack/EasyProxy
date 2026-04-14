@@ -1537,6 +1537,7 @@ class HLSProxy:
                     "usage": {
                         "endpoint": "/extractor/video",
                         "host_endpoint": "/extractor/video.m3u8",
+                        "mp4_host_endpoint": "/extractor/video.mp4",
                         "parameters": {
                             "d": "(Required) URL to extract. Supports plain text, URL encoded, or Base64.",
                             "url": "(Alias) Same as 'd'.",
@@ -1577,6 +1578,7 @@ class HLSProxy:
                     "examples": [
                         f"{request.scheme}://{request.host}/extractor/video?d=https://vavoo.to/channel/123",
                         f"{request.scheme}://{request.host}/extractor/video.m3u8?host=vavoo&d=https://custom-link.com",
+                        f"{request.scheme}://{request.host}/extractor/video.mp4?host=mixdrop&d=https://mixdrop.co/e/ABC123XYZ",
                         f"{request.scheme}://{request.host}/extractor/video?d=BASE64_STRING",
                     ],
                 }
@@ -2843,6 +2845,20 @@ class HLSProxy:
                         "parameters": [
                             {"name": "host", "in": "query", "schema": {"type": "string"}},
                             {"name": "url", "in": "query", "schema": {"type": "string"}},
+                            {"name": "api_password", "in": "query", "schema": {"type": "string"}},
+                        ],
+                        "responses": {"200": {"description": "Extractor response"}},
+                        **({"security": security} if requires_password else {}),
+                    }
+                },
+                "/extractor/video.mp4": {
+                    "get": {
+                        "summary": "Extractor compatibility endpoint with mp4 suffix",
+                        "description": "Alias for host-forced extractor requests where the resolved media is typically a direct MP4 stream.",
+                        "parameters": [
+                            {"name": "host", "in": "query", "schema": {"type": "string"}},
+                            {"name": "url", "in": "query", "schema": {"type": "string"}},
+                            {"name": "d", "in": "query", "schema": {"type": "string"}},
                             {"name": "api_password", "in": "query", "schema": {"type": "string"}},
                         ],
                         "responses": {"200": {"description": "Extractor response"}},

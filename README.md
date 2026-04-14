@@ -295,6 +295,11 @@ You must add `?d=` (or `?url=`) followed by the video link you want to process.
     http://your-server:7860/extractor/video.m3u8?host=vavoo&d=https://custom-link.com/123
     ```
 
+3b. **Direct MP4 host example (Mixdrop):**
+    ```
+    http://your-server:7860/extractor/video.mp4?host=mixdrop&d=https://mixdrop.co/e/ABC123XYZ
+    ```
+
 4.  **Base64 URL:**
     You can pass the Base64 encoded URL in the `d` (or `url`) parameter. The server will automatically decode it.
     ```
