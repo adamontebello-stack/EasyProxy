@@ -37,7 +37,6 @@ class VavooExtractor:
         self.proxies = proxies or []
         self._cached_sig = None
         self._cached_sig_ts = 0
-        self.bypassed_domains = set()
 
     def _get_random_proxy(self):
         """Restituisce un proxy casuale dalla lista."""
@@ -46,6 +45,7 @@ class VavooExtractor:
     def _check_warp_bypass(self, url: str):
         """Forces WARP bypass for specific domains within the extractor."""
         from config import ENABLE_WARP, VERSION_MODE
+        from services.hls_proxy import BYPASSED_WARP_DOMAINS
         import os
         if not ENABLE_WARP or VERSION_MODE != "Full":
             return
@@ -53,23 +53,20 @@ class VavooExtractor:
         try:
             from urllib.parse import urlsplit
             domain = urlsplit(url).netloc
-            if domain and domain not in self.bypassed_domains:
+            if domain and domain not in BYPASSED_WARP_DOMAINS:
                 # Always bypass these domains for Vavoo/Mediahubmx to ensure IP consistency
                 bypass_domains = ["lokke.app", "vavoo.to", "vavoo.tv", "mediahubmx.cc"]
                 if any(d in domain.lower() for d in bypass_domains):
                     logger.info(f"⚡ [Vavoo Bypass] Excluding {domain} from WARP...")
                     os.system(f"warp-cli --accept-tos tunnel host add {domain} > /dev/null 2>&1")
-                    # Bypass also base domain if it's a subdomain
+                    BYPASSED_WARP_DOMAINS.add(domain)
+                    # Also add base domain to global registry
                     base_domain = ".".join(domain.split(".")[-2:])
-                    if base_domain != domain:
-                        os.system(f"warp-cli --accept-tos tunnel host add {base_domain} > /dev/null 2>&1")
-                    
-                    self.bypassed_domains.add(domain)
-                    self.bypassed_domains.add(base_domain)
+                    BYPASSED_WARP_DOMAINS.add(base_domain)
                     
                     # Small sleep to let WARP stabilize routing table
                     import time
-                    time.sleep(0.5)
+                    time.sleep(1.0) # Increased to 1s for better stability
         except:
             pass
 

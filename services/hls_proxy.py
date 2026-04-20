@@ -49,6 +49,9 @@ from config import (
 from extractors.generic import GenericHLSExtractor, ExtractorError
 from services.manifest_rewriter import ManifestRewriter
 
+# Global registry for domains already bypassed in WARP to avoid redundant os.system calls
+BYPASSED_WARP_DOMAINS = set()
+
 # Legacy MPD converter (used when MPD_MODE is not ffmpeg)
 MPDToHLSConverter = None
 decrypt_segment = None
@@ -346,8 +349,8 @@ class HLSProxy:
         self.latest_version = "Checking..."
         self.warp_status = "Disabled" if not ENABLE_WARP else "Checking..."
 
-        # Track dynamically bypassed domains for WARP (TUN mode)
-        self.bypassed_warp_domains = set()
+        # Version information
+        self.latest_version = "Checking..."
 
     async def start_tasks(self):
         """Starts background tasks for the proxy."""
@@ -543,11 +546,14 @@ class HLSProxy:
                 is_problematic = True
 
             if is_problematic:
-                if domain not in self.bypassed_warp_domains:
+                if domain not in BYPASSED_WARP_DOMAINS:
                     logging.info(f"⚡ [Dynamic Bypass] Adding {domain} to WARP exclusion list...")
                     # Add to WARP bypass (works in TUN mode)
                     os.system(f"warp-cli --accept-tos tunnel host add {domain} > /dev/null 2>&1")
-                    self.bypassed_warp_domains.add(domain)
+                    BYPASSED_WARP_DOMAINS.add(domain)
+                    # Also add base domain to global registry
+                    base_domain = ".".join(domain.split(".")[-2:])
+                    BYPASSED_WARP_DOMAINS.add(base_domain)
         except Exception as e:
             logging.error(f"❌ Error in dynamic WARP bypass: {e}")
 
