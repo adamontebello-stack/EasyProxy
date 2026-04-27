@@ -7,10 +7,12 @@ from urllib.parse import urlparse, urljoin, urlencode
 
 import aiohttp
 from bs4 import BeautifulSoup, SoupStrainer
+from aiohttp_socks import ProxyConnector
 
 from config import FLARESOLVERR_URL, FLARESOLVERR_TIMEOUT, get_proxy_for_url, TRANSPORT_ROUTES, get_solver_proxy_url, GLOBAL_PROXIES
 from utils.cookie_cache import CookieCache
 from utils.solver_manager import solver_manager
+from utils.proxy_manager import FreeProxyManager
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,24 @@ class DeltabitExtractor:
         self.mediaflow_endpoint = "proxy_stream_endpoint"
         self.bypass_warp_active = bypass_warp
         self.session = None
+        self.proxy_manager = FreeProxyManager.get_instance(
+            "deltabit",
+            [
+                "https://raw.githubusercontent.com/proxifly/free-proxy-list/refs/heads/main/proxies/all/data.txt",
+                "https://api.proxyscrape.com/v4/free-proxy-list/get?request=display_proxies&proxy_format=protocolipport&format=text",
+                "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+                "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
+                "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+                "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
+                "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
+                "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies.txt",
+                "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+                "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/all.txt",
+                "https://raw.githubusercontent.com/mmpx12/proxy-list/master/https.txt",
+                "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks4.txt",
+                "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt"
+            ]
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self.session is None or self.session.closed:
@@ -80,7 +100,7 @@ class DeltabitExtractor:
         
         logger.info(f"🔍 [Cache Miss] Extracting new link for: {normalized_url}")
         proxy = get_proxy_for_url(normalized_url, TRANSPORT_ROUTES, self.proxies, self.bypass_warp_active)
-        is_redirector_url = any(d in normalized_url.lower() for d in ["safego.cc", "clicka.cc", "clicka"])
+        is_redirector_url = any(d in normalized_url.lower() for d in ["safego.cc", "clicka.cc", "clicka", "uprot.net"])
         redirect_session_id = await solver_manager.get_persistent_session("redirector:clicka-safego", proxy) if is_redirector_url else None
         final_session_id = await solver_manager.get_persistent_session("deltabit", proxy)
         session_id = redirect_session_id or final_session_id
@@ -194,8 +214,30 @@ class DeltabitExtractor:
                             return sol.get("response", ""), sol.get("url", target_url)
                         return text, str(r.url)
             except Exception as e:
-                logger.debug(f"Light fetch failed for {target_url}: {e}, falling back to FlareSolverr...")
+                logger.debug(f"Light fetch failed for {target_url}: {e}, trying free proxy fallback...")
                 try:
+                    # Free Proxy Fallback for redirectors
+                    if any(d in target_url.lower() for d in ["safego.cc", "clicka.cc", "clicka", "uprot.net"]):
+                        try:
+                            free_proxies = await self.proxy_manager.get_proxies(lambda x: True)
+                            for p in free_proxies[:2]:
+                                try:
+                                    connector = ProxyConnector.from_url(p)
+                                    async with aiohttp.ClientSession(connector=connector, timeout=aiohttp.ClientTimeout(total=15)) as free_session:
+                                        if post_data:
+                                            async with free_session.post(target_url, data=post_data, cookies=cookies, headers=request_headers) as r:
+                                                if r.status == 200:
+                                                    cookies.update({k: v.value for k, v in r.cookies.items()})
+                                                    return await r.text(), str(r.url)
+                                        else:
+                                            async with free_session.get(target_url, cookies=cookies, headers=request_headers) as r:
+                                                if r.status == 200:
+                                                    cookies.update({k: v.value for k, v in r.cookies.items()})
+                                                    return await r.text(), str(r.url)
+                                except: continue
+                        except Exception as pe:
+                            logger.debug(f"Free proxy error: {pe}")
+
                     fs_counter += 1
                     fs_cmd = "request.post" if post_data else "request.get"
                     fs_res = await self._request_flaresolverr(fs_cmd, target_url, urlencode(post_data) if post_data else None, session_id=session_id, headers=request_headers)
