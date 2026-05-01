@@ -122,7 +122,7 @@ async def smart_request(
                     {
                         "name": k,
                         "value": v,
-                        "domain": f".{cookie_domain.split('.')[-2]}.{cookie_domain.split('.')[-1]}" if len(cookie_domain.split('.')) >= 2 else cookie_domain,
+                        "domain": cookie_domain,
                         "path": "/",
                         "secure": cookie_secure,
                     }
