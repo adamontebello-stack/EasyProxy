@@ -122,6 +122,7 @@ async def smart_request(
                     {
                         "name": k,
                         "value": v,
+                        "domain": parsed_target.hostname,
                         "path": "/",
                         "secure": cookie_secure,
                     }
