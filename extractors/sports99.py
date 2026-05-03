@@ -16,17 +16,26 @@ class Sports99Extractor(BaseExtractor):
     async def extract(self, url: str, **kwargs) -> dict:
         """Extract Sports99 stream URL."""
         logger.info(f"[Sports99] Extracting from: {url}")
-        
-        headers = {
+
+        entry = "https://streamsports99.su"
+        player_headers = {
+            "User-Agent": self.base_headers["User-Agent"],
+            "Referer": f"{entry}/",
+            "Origin": entry,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
+        }
+        stream_headers = {
             "User-Agent": self.base_headers["User-Agent"],
             "Referer": "https://cdnlivetv.tv/",
             "Origin": "https://cdnlivetv.tv",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9,it;q=0.8",
         }
         
         try:
             # 1. Fetch the player page
-            resp = await self._make_request(url, headers=headers)
+            resp = await self._make_request(url, headers=player_headers)
             html = resp.text
 
             # 2. Extract packed script arguments
@@ -41,7 +50,7 @@ class Sports99Extractor(BaseExtractor):
                         logger.info(f"[Sports99] Found direct URL in HTML")
                         return {
                             "destination_url": m3u8_match.group(1),
-                            "request_headers": headers,
+                            "request_headers": stream_headers,
                             "mediaflow_endpoint": self.mediaflow_endpoint,
                         }
                 raise ExtractorError("SPORTS99: Packed script not found")
@@ -64,10 +73,9 @@ class Sports99Extractor(BaseExtractor):
 
             logger.info(f"[Sports99] Successfully extracted: {stream_url}")
             
-            # Use same headers for the stream
             return {
                 "destination_url": stream_url,
-                "request_headers": headers,
+                "request_headers": stream_headers,
                 "mediaflow_endpoint": self.mediaflow_endpoint,
             }
 

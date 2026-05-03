@@ -3122,8 +3122,26 @@ class HLSProxy:
                 except: pass
 
                 if manifest_content is None and (".m3u8" in stream_url or "mpegurl" in content_type):
-                    try: manifest_content = content_bytes.decode("utf-8", errors='replace')
-                    except: pass
+                    try:
+                        decoded_text = content_bytes.decode("utf-8", errors='replace')
+                        if decoded_text.lstrip().startswith("#EXTM3U"):
+                            manifest_content = decoded_text
+                        else:
+                            logger.warning(
+                                "Upstream did not return a valid HLS manifest for %s: %s",
+                                stream_url,
+                                decoded_text[:120].replace("\n", "\\n"),
+                            )
+                            return web.Response(
+                                text="Upstream did not return a valid HLS manifest",
+                                status=502,
+                                headers={
+                                    "Content-Type": "text/plain; charset=utf-8",
+                                    "Access-Control-Allow-Origin": "*",
+                                },
+                            )
+                    except Exception:
+                        pass
 
                 if manifest_content:
                     logger.info(f"📄 HLS manifest detected: {stream_url}")
